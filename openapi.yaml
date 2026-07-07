@@ -1,0 +1,281 @@
+openapi: 3.1.0
+info:
+  title: WalletTriage API
+  version: 0.1.0
+  summary: Real-time wallet risk checks for AI agents, paid per query via x402.
+  description: |
+    WalletTriage answers one question: **"is this address risky right now?"**
+
+    Each query cross-references the wallet's active ERC20 approvals with a live
+    exploit threat feed (contracts under attack, compromised protocols,
+    dangerous spenders) and returns a risk score with actionable findings.
+
+    ### Payment (x402)
+    The `/scan` endpoint is paid per query using the [x402 protocol](https://docs.x402.org)
+    (USDC on Base). No signup, no API key:
+
+    1. Call `GET /scan` with no payment → the API replies `402 Payment Required`
+       with a `PAYMENT-REQUIRED` header (base64 JSON) describing price, network
+       and asset.
+    2. Sign an EIP-3009 `transferWithAuthorization` payload for the exact amount
+       (gasless — the facilitator submits the transaction and pays gas).
+    3. Retry the request with the `PAYMENT` header. On successful settlement the
+       API returns `200` plus a `PAYMENT-RESPONSE` header containing the
+       settlement transaction hash.
+
+    Client libraries such as `@x402/fetch` handle this loop automatically.
+
+    ### Privacy & trust model
+    - **Stateless:** nothing about the caller or the queried address is stored.
+    - **Watch-only:** WalletTriage never holds funds and never signs transactions.
+      `recommended_action` is a suggestion; any action is built and signed by
+      the user/agent in their own wallet.
+    - **Probabilistic:** results are risk signals, never a guarantee of safety.
+      Absence of findings means "no known risk detected right now", not "safe".
+  contact:
+    name: WalletTriage
+    email: ederaildo@gmail.com
+servers:
+  - url: https://api.wallettriage.com
+    description: Production (x402 payments settled in USDC on Base mainnet)
+  - url: http://localhost:4021
+    description: Local development
+tags:
+  - name: risk
+    description: Paid risk queries (x402)
+  - name: meta
+    description: Free service metadata
+
+paths:
+  /scan:
+    get:
+      tags: [risk]
+      operationId: checkAddressRisk
+      summary: Real-time risk check for an EVM address (paid via x402)
+      description: |
+        Cross-references the address's active ERC20 approvals with the live
+        exploit threat feed. Returns `risk_score` (0–100), `risk_level`
+        (`low`/`medium`/`high`/`critical`) and actionable findings.
+
+        Findings of type `exploit_exposure` are aggregated per flagged
+        spender/reason (`affected_approvals`, `tokens` sample, summed
+        `usd_at_risk`). Low-risk approvals to reputable spenders are aggregated
+        into `summary` counters instead of being listed individually.
+      parameters:
+        - name: address
+          in: query
+          required: true
+          description: EVM address to check.
+          schema:
+            type: string
+            pattern: '^0x[a-fA-F0-9]{40}$'
+            example: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045'
+        - name: chain
+          in: query
+          required: false
+          description: Chain to scan. Defaults to `eth`.
+          schema:
+            type: string
+            enum: [eth, base, polygon, arbitrum, optimism, bsc]
+            default: eth
+      responses:
+        '200':
+          description: Risk assessment (payment settled).
+          headers:
+            PAYMENT-RESPONSE:
+              description: Base64 JSON settlement receipt (payer, transaction hash, network).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RiskResponse'
+        '402':
+          description: Payment required — see the `PAYMENT-REQUIRED` header for price, network and asset.
+          headers:
+            PAYMENT-REQUIRED:
+              description: Base64 JSON x402 payment requirements.
+              schema:
+                type: string
+        '400':
+          description: Invalid input.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: invalid_address
+                detail: 'Provide a valid EVM address in ?address=0x...'
+        '502':
+          description: Upstream data provider failure.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: data_provider_error
+                detail: 'Moralis responded 429: rate limited'
+
+  /health:
+    get:
+      tags: [meta]
+      operationId: getServiceStatus
+      summary: Service status and current price (free)
+      responses:
+        '200':
+          description: Service metadata.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  network:
+                    type: string
+                    description: CAIP-2 payment network (e.g. `eip155:8453` = Base mainnet).
+                    example: 'eip155:8453'
+                  price:
+                    type: string
+                    description: Price per /scan query, in USD.
+                    example: '$0.001'
+                  dataSource:
+                    type: string
+                    enum: [moralis, mock]
+                  defaultChain:
+                    type: string
+                    example: eth
+                  threatFeedEntities:
+                    type: integer
+                    description: Number of entities currently active in the live threat feed.
+
+components:
+  schemas:
+    RiskResponse:
+      type: object
+      required:
+        [address, chain, risk_score, risk_level, checked_at, findings, summary, stateless]
+      properties:
+        address:
+          type: string
+          description: The EVM address that was checked.
+        chain:
+          type: string
+          description: The chain that was scanned.
+        risk_score:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: 0 = no known risk detected, 100 = critical. Driven by the worst finding.
+        risk_level:
+          type: string
+          enum: [low, medium, high, critical]
+        checked_at:
+          type: string
+          format: date-time
+        findings:
+          type: array
+          description: Actionable findings, worst first. Empty = no known risk detected right now.
+          items:
+            $ref: '#/components/schemas/RiskFinding'
+        summary:
+          $ref: '#/components/schemas/RiskSummary'
+        stateless:
+          type: boolean
+          const: true
+          description: Nothing about this query is persisted.
+        mock:
+          type: boolean
+          description: Present and true only when the server runs without a data provider key (development).
+      example:
+        address: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045'
+        chain: eth
+        risk_score: 90
+        risk_level: critical
+        checked_at: '2026-07-07T13:11:44.754Z'
+        findings:
+          - type: exploit_exposure
+            severity: critical
+            detail: 'Active approval involves a contract currently flagged by the live threat feed: Anomalous outflow ~$180000'
+            token: BODHI
+            spender: '0x7a250d5630b4cf539739df2c5dacb4c659f2488d'
+            usd_at_risk: 5536.82
+            recommended_action: revoke_approval
+            affected_approvals: 90
+            tokens: [BODHI, vitalik.eth, SPDG, BIRDDOG, Inglip]
+        summary:
+          total_approvals: 100
+          spam_suppressed: 5
+          low_noise_approvals: 5
+          low_value_at_risk_usd: 0
+        stateless: true
+
+    RiskFinding:
+      type: object
+      required: [type, severity, detail, token, spender, usd_at_risk, recommended_action]
+      properties:
+        type:
+          type: string
+          enum: [dangerous_approval, exploit_exposure]
+          description: |
+            `exploit_exposure` = involves a contract flagged by the live threat
+            feed RIGHT NOW. `dangerous_approval` = structurally risky approval
+            (unknown spender, unlimited allowance, high value at risk).
+        severity:
+          type: string
+          enum: [low, medium, high, critical]
+        detail:
+          type: string
+          description: Human/agent-readable explanation, including the threat-feed reason when applicable.
+        token:
+          type: [string, 'null']
+          description: Token symbol (or address) with the highest value at risk in this finding.
+        spender:
+          type: string
+          description: The approved spender contract this finding is about.
+        usd_at_risk:
+          type: [number, 'null']
+          description: USD value reachable through the involved approval(s), when known.
+        recommended_action:
+          type: string
+          enum: [revoke_approval, monitor]
+          description: Suggestion only — WalletTriage never signs or submits transactions.
+        affected_approvals:
+          type: integer
+          description: Present on aggregated findings — how many approvals share this flagged spender/reason.
+        tokens:
+          type: array
+          items:
+            type: string
+          maxItems: 5
+          description: Present on aggregated findings — affected tokens, highest value first.
+
+    RiskSummary:
+      type: object
+      required: [total_approvals, spam_suppressed, low_noise_approvals, low_value_at_risk_usd]
+      properties:
+        total_approvals:
+          type: integer
+          description: Total active approvals examined.
+        spam_suppressed:
+          type: integer
+          description: Approvals on likely-spam tokens with no value — counted, not scored.
+        low_noise_approvals:
+          type: integer
+          description: Low-risk approvals (reputable spenders) aggregated instead of listed.
+        low_value_at_risk_usd:
+          type: number
+          description: Combined USD value behind the low-risk approvals.
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          description: Machine-readable error code.
+        detail:
+          type: string
+          description: Human-readable explanation.
+        address:
+          type: string

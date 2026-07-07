@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WalletTriage — Real-time wallet risk for AI agents</title>
+<meta name="description" content="Real-time exploit-exposure check for EVM addresses. Built for AI agents: pay per query via x402 (USDC on Base). No signup, no API key. MCP server + REST API.">
+<style>
+  :root{
+    --bg:#0b0e14; --panel:#121724; --panel2:#0e1320; --line:#1f2937;
+    --txt:#e5e9f0; --muted:#8b95a7; --acc:#4f8cff; --acc2:#7bd88f;
+    --low:#7bd88f; --med:#e5c07b; --high:#e08356; --crit:#e05656;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--txt);font:16px/1.6 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  a{color:var(--acc);text-decoration:none} a:hover{text-decoration:underline}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
+  header{padding:18px 0;border-bottom:1px solid var(--line)}
+  header .wrap{display:flex;align-items:center;justify-content:space-between}
+  .logo{font-weight:700;font-size:18px;letter-spacing:.3px}
+  .logo span{color:var(--acc)}
+  nav a{color:var(--muted);margin-left:22px;font-size:14px}
+  .hero{padding:72px 0 56px;text-align:center}
+  .hero h1{font-size:clamp(28px,5vw,44px);line-height:1.15;font-weight:800}
+  .hero h1 em{color:var(--acc);font-style:normal}
+  .hero p.sub{color:var(--muted);max-width:640px;margin:18px auto 0;font-size:18px}
+  .badges{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:26px}
+  .badge{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:6px 14px;font-size:13px;color:var(--muted)}
+  .cta{margin-top:32px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+  .btn{display:inline-block;padding:12px 22px;border-radius:8px;font-weight:600;font-size:15px}
+  .btn.primary{background:var(--acc);color:#fff}
+  .btn.ghost{border:1px solid var(--line);color:var(--txt)}
+  section{padding:56px 0;border-top:1px solid var(--line)}
+  h2{font-size:26px;margin-bottom:8px}
+  .lead{color:var(--muted);margin-bottom:28px;max-width:700px}
+  .grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px}
+  .card h3{font-size:16px;margin-bottom:8px}
+  .card p{color:var(--muted);font-size:14px}
+  .step{font:700 13px var(--mono);color:var(--acc);display:block;margin-bottom:6px}
+  /* demo */
+  .demo-input{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+  .demo-input input{flex:1;min-width:260px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px 14px;color:var(--txt);font:14px var(--mono)}
+  .demo-input button{background:var(--acc);border:0;border-radius:8px;color:#fff;font-weight:600;padding:12px 20px;cursor:pointer}
+  .samples{font-size:13px;color:var(--muted);margin-bottom:22px}
+  .samples a{font-family:var(--mono);font-size:12px}
+  .verdict{display:none;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .verdict.show{display:block}
+  .v-head{display:flex;align-items:center;gap:16px;padding:20px 22px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .score{font:800 34px/1 var(--mono)}
+  .level{font:700 12px var(--mono);text-transform:uppercase;letter-spacing:1px;border-radius:6px;padding:5px 10px}
+  .level.low{background:rgba(123,216,143,.12);color:var(--low)}
+  .level.medium{background:rgba(229,192,123,.12);color:var(--med)}
+  .level.high{background:rgba(224,131,86,.14);color:var(--high)}
+  .level.critical{background:rgba(224,86,86,.16);color:var(--crit)}
+  .v-addr{font:12px var(--mono);color:var(--muted);word-break:break-all}
+  .finding{padding:16px 22px;border-bottom:1px solid var(--line);font-size:14px}
+  .finding:last-of-type{border-bottom:0}
+  .finding .tag{font:700 11px var(--mono);text-transform:uppercase;margin-right:8px}
+  .finding .tag.critical{color:var(--crit)} .finding .tag.high{color:var(--high)}
+  .finding .tag.medium{color:var(--med)} .finding .tag.low{color:var(--low)}
+  .finding p{color:var(--muted);margin-top:4px}
+  .v-foot{padding:14px 22px;color:var(--muted);font-size:13px;background:var(--panel2)}
+  details.raw{margin-top:14px}
+  details.raw summary{cursor:pointer;color:var(--muted);font-size:13px}
+  pre{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:16px;overflow-x:auto;font:12.5px/1.5 var(--mono);color:#c9d4e3;margin-top:10px}
+  .note{font-size:12px;color:var(--muted);margin-top:14px}
+  /* pricing */
+  .price-line{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+  .price{font:800 40px var(--mono);color:var(--acc2)}
+  table{width:100%;border-collapse:collapse;margin-top:18px;font-size:14px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-weight:600;font-size:13px}
+  td code{font:12.5px var(--mono);color:#c9d4e3}
+  footer{padding:36px 0;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="logo">Wallet<span>Triage</span></div>
+    <nav>
+      <a href="#demo">Demo</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#integrate">Integrate</a>
+      <a href="#trust">Trust model</a>
+    </nav>
+  </div>
+</header>
+
+<div class="hero wrap">
+  <h1>Is this address <em>dangerous right now?</em><br>Ask before your agent acts.</h1>
+  <p class="sub">Real-time exploit-exposure check for EVM wallets: dangerous ERC20 approvals
+  cross-referenced with a live threat feed of contracts under attack. Built for AI agents —
+  paid per query via <strong>x402</strong>, no signup, no API key.</p>
+  <div class="badges">
+    <span class="badge">MCP server for agents</span>
+    <span class="badge">Pay-per-query · USDC on Base</span>
+    <span class="badge">Stateless · watch-only</span>
+    <span class="badge">Sub-second responses</span>
+  </div>
+  <div class="cta">
+    <a class="btn primary" href="#integrate">Integrate in 2 minutes</a>
+    <a class="btn ghost" href="#demo">Try the demo</a>
+  </div>
+</div>
+
+<section id="how">
+  <div class="wrap">
+    <h2>How it works</h2>
+    <p class="lead">Your agent discovers the price, pays and gets an answer — in one HTTP round trip.
+    No account, no key management, no invoices.</p>
+    <div class="grid3">
+      <div class="card"><span class="step">01 · ASK</span>
+        <h3>Agent calls the tool</h3>
+        <p><code>check_address_risk(address)</code> via MCP, or <code>GET /scan</code> on the REST API.
+        The first response is an HTTP 402 with the exact price.</p></div>
+      <div class="card"><span class="step">02 · PAY</span>
+        <h3>x402 settles the payment</h3>
+        <p>The agent signs a gasless USDC payment (EIP-3009) on Base with its session key.
+        One signature per call, zero interaction, settled on-chain in ~1–2s.</p></div>
+      <div class="card"><span class="step">03 · ACT</span>
+        <h3>Risk verdict, instantly</h3>
+        <p>A <code>risk_score</code> (0–100), a <code>risk_level</code> and actionable findings —
+        e.g. "revoke this approval: the spender is under active exploit".</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="demo">
+  <div class="wrap">
+    <h2>See what an agent sees</h2>
+    <p class="lead">Paste an address and inspect the verdict. This demo replays real responses
+    from the API for three representative wallets — the live paid endpoint returns exactly this schema.</p>
+
+    <div class="demo-input">
+      <input id="addr" type="text" spellcheck="false" placeholder="0x… paste an EVM address">
+      <button onclick="runDemo()">Check risk</button>
+    </div>
+    <div class="samples">Try a sample:
+      <a href="#demo" onclick="fill('0x1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b');return false">clean wallet</a> ·
+      <a href="#demo" onclick="fill('0x9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e');return false">dangerous approval</a> ·
+      <a href="#demo" onclick="fill('0x4c6f7274686572526f75746572563220456e6a65');return false">exploit exposure</a>
+    </div>
+
+    <div id="verdict" class="verdict"></div>
+    <p class="note">Demo responses are pre-recorded. WalletTriage is probabilistic and never
+    says "safe" — the minimum level is <code>low</code>, always with a summary of what was checked.</p>
+  </div>
+</section>
+
+<section id="pricing">
+  <div class="wrap">
+    <h2>Pricing</h2>
+    <p class="lead">One price, per query, settled in USDC on Base at request time. No subscription,
+    no minimum, no credit card. If you don't call, you don't pay.</p>
+    <div class="card">
+      <div class="price-line"><span class="price">$0.01</span><span style="color:var(--muted)">per risk scan · introductory pricing</span></div>
+      <table>
+        <tr><th>What you get</th><th>Field</th></tr>
+        <tr><td>Overall risk score (0–100) and level</td><td><code>risk_score</code>, <code>risk_level</code></td></tr>
+        <tr><td>Actionable findings with recommended action</td><td><code>findings[]</code> · <code>recommended_action</code></td></tr>
+        <tr><td>Live exploit exposure (threat feed cross-reference)</td><td><code>exploit_exposure</code> findings</td></tr>
+        <tr><td>Approvals summary (spam suppressed, USD at risk)</td><td><code>summary</code></td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="integrate">
+  <div class="wrap">
+    <h2>Integrate</h2>
+    <p class="lead">Two interfaces, same engine. Full spec: <a href="./openapi.yaml">OpenAPI 3.1</a>.</p>
+
+    <h3 style="margin-bottom:6px">MCP (for agents)</h3>
+    <p style="color:var(--muted);font-size:14px">Add the WalletTriage MCP server and fund a dedicated
+    session wallet with a few USDC on Base. Tools: <code>check_address_risk</code> (paid) and
+    <code>get_pricing</code> (free).</p>
+<pre>{
+  "mcpServers": {
+    "wallettriage": {
+      "command": "node",
+      "args": ["wallettriage-mcp/dist/server.js"],
+      "env": {
+        "GATEWAY_URL": "https://api.wallettriage.com",
+        "EVM_PRIVATE_KEY": "0x…session key, low balance only",
+        "MAX_PAYMENT_ATOMIC": "100000"
+      }
+    }
+  }
+}</pre>
+
+    <h3 style="margin:26px 0 6px">REST (for everything else)</h3>
+<pre># 1) discover the price (free)
+curl https://api.wallettriage.com/scan?address=0xABC…
+# → HTTP 402 with x402 payment requirements (USDC on Base)
+
+# 2) pay + retry with the X-PAYMENT header (any x402 client does this for you)
+# → HTTP 200
+{
+  "address": "0xabc…",
+  "risk_score": 92,
+  "risk_level": "critical",
+  "findings": [ … ],
+  "stateless": true
+}</pre>
+  </div>
+</section>
+
+<section id="trust">
+  <div class="wrap">
+    <h2>Trust model</h2>
+    <div class="grid3">
+      <div class="card"><h3>Stateless</h3><p>Nothing about you or your query is persisted.
+      No user database, no API keys, no history. The agent holds its own state, pays and leaves.</p></div>
+      <div class="card"><h3>Watch-only, non-custodial</h3><p>WalletTriage never holds funds and can
+      never move them. Mitigation actions are only suggested — you (or your agent) sign in your own wallet.</p></div>
+      <div class="card"><h3>Probabilistic, honest</h3><p>Risk scores are probabilistic signals,
+      not guarantees. We never return "safe" — a low score always comes with the evidence we checked.</p></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    WalletTriage — real-time wallet risk, paid per query, for agents. ·
+    <a href="./openapi.yaml">API docs</a> · Settled via x402 in USDC on Base.
+    <br>Not financial advice. Risk signals are probabilistic and may miss novel exploits.
+  </div>
+</footer>
+
+<script>
+const SAMPLES = {
+  "0x1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b": {
+    address: "0x1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b",
+    chain: "eth", risk_score: 12, risk_level: "low",
+    checked_at: "2026-07-07T14:02:11Z",
+    findings: [],
+    summary: { total_approvals: 6, spam_suppressed: 2, low_noise_approvals: 4, low_value_at_risk_usd: 815.20 },
+    stateless: true
+  },
+  "0x9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e": {
+    address: "0x9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e",
+    chain: "eth", risk_score: 74, risk_level: "high",
+    checked_at: "2026-07-07T14:02:38Z",
+    findings: [
+      { type: "dangerous_approval", severity: "high",
+        detail: "Unlimited USDT approval to an unlabeled spender with $4,200.50 at risk. The spender contract is unverified and has no known entity.",
+        token: "USDT", spender: "0x1a2b3c0000000000000000000000000000000000",
+        usd_at_risk: 4200.50, recommended_action: "revoke_approval" }
+    ],
+    summary: { total_approvals: 9, spam_suppressed: 1, low_noise_approvals: 7, low_value_at_risk_usd: 1120.00 },
+    stateless: true
+  },
+  "0x4c6f7274686572526f75746572563220456e6a65": {
+    address: "0x4c6f7274686572526f75746572563220456e6a65",
+    chain: "eth", risk_score: 96, risk_level: "critical",
+    checked_at: "2026-07-07T14:03:05Z",
+    findings: [
+      { type: "exploit_exposure", severity: "critical",
+        detail: "14 active approvals grant funds to a router contract currently flagged in the live threat feed (reason: drain pattern detected 22 minutes ago). Estimated $18,340 at risk across affected tokens.",
+        token: null, spender: "0xrouterV2flagged000000000000000000000000",
+        usd_at_risk: 18340.00, recommended_action: "revoke_approval",
+        affected_approvals: 14, tokens: ["USDC","WETH","USDT","DAI","LINK"] },
+      { type: "dangerous_approval", severity: "high",
+        detail: "Unlimited WETH approval to an unlabeled spender with $2,910 at risk.",
+        token: "WETH", spender: "0x77aa000000000000000000000000000000000000",
+        usd_at_risk: 2910.00, recommended_action: "revoke_approval" }
+    ],
+    summary: { total_approvals: 21, spam_suppressed: 3, low_noise_approvals: 4, low_value_at_risk_usd: 640.75 },
+    stateless: true
+  }
+};
+function fill(a){ document.getElementById('addr').value = a; runDemo(); }
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function runDemo(){
+  const raw = document.getElementById('addr').value.trim().toLowerCase();
+  const box = document.getElementById('verdict');
+  const data = SAMPLES[raw];
+  if(!raw){ box.className='verdict'; return; }
+  if(!data){
+    box.className='verdict show';
+    box.innerHTML = '<div class="v-head"><div><div class="v-addr">'+esc(raw)+'</div>'+
+      '<p style="color:var(--muted);font-size:14px;margin-top:6px">This demo only replays the three sample addresses above. '+
+      'The live API scans any EVM address — see <a href="#integrate">Integrate</a>.</p></div></div>';
+    return;
+  }
+  let f = '';
+  for(const x of data.findings){
+    f += '<div class="finding"><span class="tag '+x.severity+'">'+x.severity+'</span>'+
+         '<strong>'+esc(x.type.replace('_',' '))+'</strong> — recommended: <code>'+esc(x.recommended_action)+'</code>'+
+         '<p>'+esc(x.detail)+'</p></div>';
+  }
+  if(!f){ f = '<div class="finding"><span class="tag low">low</span><strong>no medium+ findings</strong>'+
+    '<p>'+data.summary.low_noise_approvals+' low-noise approvals ($'+data.summary.low_value_at_risk_usd.toLocaleString('en-US')+
+    ' at risk) and '+data.summary.spam_suppressed+' suppressed spam tokens. Probabilistic signal — not a guarantee of safety.</p></div>'; }
+  box.className='verdict show';
+  box.innerHTML =
+    '<div class="v-head"><span class="score">'+data.risk_score+'<small style="font-size:14px;color:var(--muted)">/100</small></span>'+
+    '<span class="level '+data.risk_level+'">'+data.risk_level+'</span>'+
+    '<div class="v-addr">'+esc(data.address)+' · '+esc(data.chain)+' · checked '+esc(data.checked_at)+'</div></div>'+
+    f +
+    '<div class="v-foot">'+data.summary.total_approvals+' approvals scanned · '+data.summary.spam_suppressed+
+    ' spam suppressed · stateless: nothing persisted'+
+    '<details class="raw"><summary>Raw JSON response</summary><pre>'+esc(JSON.stringify(data,null,2))+'</pre></details></div>';
+}
+</script>
+</body>
+</html>
