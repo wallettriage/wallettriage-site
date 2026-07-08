@@ -175,22 +175,36 @@
     <p class="lead">Two interfaces, same engine. Full spec: <a href="./openapi.yaml">OpenAPI 3.1</a>.</p>
 
     <h3 style="margin-bottom:6px">MCP (for agents)</h3>
-    <p style="color:var(--muted);font-size:14px">Add the WalletTriage MCP server and fund a dedicated
-    session wallet with a few USDC on Base. Tools: <code>check_address_risk</code> (paid) and
+    <p style="color:var(--muted);font-size:14px">Requires Node 20+. Add the
+    <a href="https://www.npmjs.com/package/wallettriage-mcp"><code>wallettriage-mcp</code></a> server to your MCP config
+    (e.g. <code>claude_desktop_config.json</code>) and fund a dedicated
+    session wallet with a few USDC on Base — never your main key. Tools: <code>check_address_risk</code> (paid) and
     <code>get_pricing</code> (free).</p>
 <pre>{
   "mcpServers": {
     "wallettriage": {
-      "command": "node",
-      "args": ["wallettriage-mcp/dist/server.js"],
+      "command": "npx",
+      "args": ["-y", "wallettriage-mcp"],
       "env": {
         "GATEWAY_URL": "https://api.wallettriage.com",
-        "EVM_PRIVATE_KEY": "0x…session key, low balance only",
+        "EVM_PRIVATE_KEY": "0xREPLACE_WITH_SESSION_WALLET_PRIVATE_KEY",
         "MAX_PAYMENT_ATOMIC": "100000"
       }
     }
   }
 }</pre>
+    <p style="color:var(--muted);font-size:14px;margin-top:10px">
+    <strong>Notes.</strong> <code>EVM_PRIVATE_KEY</code> is the <em>private key</em>
+    (0x + 64 hex) of a dedicated low-balance session wallet — never your main key.
+    Fund it with USDC on Base only; no ETH needed (payments are gasless via EIP-3009).
+    <code>MAX_PAYMENT_ATOMIC</code> caps each payment in USDC atomic units
+    (6 decimals): <code>100000</code> = $0.10 max per call. Test connectivity first
+    with the free <code>get_pricing</code> tool before funding.
+    <br><strong>Troubleshooting (Windows / corporate networks):</strong> if you see
+    <code>unable to verify the first certificate</code>, your antivirus or proxy
+    intercepts TLS. Add <code>"NODE_OPTIONS": "--use-system-ca"</code> to the
+    <code>env</code> block so Node trusts your system's certificate store —
+    never disable TLS verification.</p>
 
     <h3 style="margin:26px 0 6px">REST (for everything else)</h3>
 <pre># 1) discover the price (free)
