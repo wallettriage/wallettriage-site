@@ -138,7 +138,7 @@ paths:
                   price:
                     type: string
                     description: Price per /scan query, in USD.
-                    example: '$0.001'
+                    example: '$0.01'
                   dataSource:
                     type: string
                     enum: [moralis, mock]
