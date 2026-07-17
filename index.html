@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>WalletTriage — Real-time wallet risk for AI agents</title>
 <meta name="description" content="Real-time exploit-exposure check for EVM addresses. Built for AI agents: pay per query via x402 (USDC on Base). No signup, no API key. MCP server + REST API.">
+<link rel="icon" type="image/svg+xml" href="/icon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Sans+3:wght@400;500;600&display=swap" rel="stylesheet">
@@ -244,6 +245,7 @@ curl https://api.wallettriage.com/scan?address=0xABC…
   "risk_score": 92,
   "risk_level": "critical",
   "findings": [ … ],
+  "threat_feed": { "state": "ok", "updated_at": "2026-07-07T13:11:30Z", "entities": 15 },
   "stateless": true
 }</pre>
   </div>
@@ -279,6 +281,7 @@ const SAMPLES = {
     checked_at: "2026-07-07T14:02:11Z",
     findings: [],
     summary: { total_approvals: 6, spam_suppressed: 2, low_noise_approvals: 4, low_value_at_risk_usd: 815.20 },
+    threat_feed: { state: "ok", updated_at: "2026-07-07T14:00:00Z", entities: 15 },
     stateless: true
   },
   "0x9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e": {
@@ -292,6 +295,7 @@ const SAMPLES = {
         usd_at_risk: 4200.50, recommended_action: "revoke_approval" }
     ],
     summary: { total_approvals: 9, spam_suppressed: 1, low_noise_approvals: 7, low_value_at_risk_usd: 1120.00 },
+    threat_feed: { state: "ok", updated_at: "2026-07-07T14:00:00Z", entities: 15 },
     stateless: true
   },
   "0x4c6f7274686572526f75746572563220456e6a65": {
@@ -310,6 +314,7 @@ const SAMPLES = {
         usd_at_risk: 2910.00, recommended_action: "revoke_approval" }
     ],
     summary: { total_approvals: 21, spam_suppressed: 3, low_noise_approvals: 4, low_value_at_risk_usd: 640.75 },
+    threat_feed: { state: "ok", updated_at: "2026-07-07T14:00:00Z", entities: 15 },
     stateless: true
   }
 };

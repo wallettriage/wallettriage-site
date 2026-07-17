@@ -115,6 +115,37 @@ paths:
               example:
                 error: data_provider_error
                 detail: 'Moralis responded 429: rate limited'
+        '429':
+          description: Rate limit exceeded (per-IP). Slow down and retry after the window.
+          headers:
+            Retry-After:
+              description: Seconds until the limit resets.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: rate_limited
+                detail: 'Too many requests. Slow down and retry shortly.'
+        '503':
+          description: >-
+            Threat feed unavailable — the live exploit signal is degraded (missing,
+            unreadable, or stale beyond its freshness window), so a reliable
+            assessment cannot be produced. No payment is taken. Retry after a short wait.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: threat_feed_unavailable
+                detail: 'The live exploit threat feed is temporarily unavailable, so a reliable risk assessment cannot be produced right now. No payment was taken. Retry shortly.'
 
   /health:
     get:
@@ -154,7 +185,7 @@ components:
     RiskResponse:
       type: object
       required:
-        [address, chain, risk_score, risk_level, checked_at, findings, summary, stateless]
+        [address, chain, risk_score, risk_level, checked_at, findings, summary, threat_feed, stateless]
       properties:
         address:
           type: string
@@ -180,6 +211,36 @@ components:
             $ref: '#/components/schemas/RiskFinding'
         summary:
           $ref: '#/components/schemas/RiskSummary'
+        threat_feed:
+          type: object
+          description: >-
+            Provenance of the live exploit threat feed (Signal B) behind this verdict.
+            Lets the caller see exactly what the query was evaluated against and how
+            fresh it was. The feed builder heartbeats every ~15 min, so `updated_at`
+            is a liveness signal. In production `state` is always `ok` (a degraded
+            feed — `stale`/`missing`/`error` — returns 503 BEFORE payment);
+            degraded states can only appear in development/testnet mock mode.
+          required: [state, updated_at, entities]
+          properties:
+            state:
+              type: string
+              enum: [ok, stale, missing, error]
+            updated_at:
+              type: string
+              format: date-time
+              nullable: true
+            entities:
+              type: integer
+              description: Active threat entities loaded when this query was served.
+        caveats:
+          type: array
+          description: >-
+            Coverage disclosures. Present whenever the verdict has any limitation —
+            e.g. the live feed is up (fresh heartbeat) but currently tracks 0 active
+            exploit entities, meaning `exploit_exposure` findings could not fire and
+            the response reflects approval hygiene only. Absent = no caveats.
+          items:
+            type: string
         stateless:
           type: boolean
           const: true
@@ -208,6 +269,10 @@ components:
           spam_suppressed: 5
           low_noise_approvals: 5
           low_value_at_risk_usd: 0
+        threat_feed:
+          state: ok
+          updated_at: '2026-07-07T13:11:30.000Z'
+          entities: 15
         stateless: true
 
     RiskFinding:
@@ -279,3 +344,4 @@ components:
           description: Human-readable explanation.
         address:
           type: string
+          description: Echoed back on input-validation errors, when relevant.
