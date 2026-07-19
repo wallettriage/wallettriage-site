@@ -32,9 +32,15 @@ Built for the agent economy:
 
 ## About this site
 
-A single static file (`index.html`) — no framework, no build step, no
-tracking. The "paste an address" demo replays pre-recorded API responses so
-humans can inspect the exact schema agents receive.
+A single static file (`index.html`) — no framework, no build step. The "paste
+an address" demo replays pre-recorded API responses so humans can inspect the
+exact schema agents receive.
+
+**Analytics:** aggregate traffic only, via Cloudflare Web Analytics — no
+cookies, no fingerprinting, no cross-site tracking, no consent banner needed.
+Deliberately not Google Analytics. The paid API at `api.wallettriage.com` uses
+no third-party analytics at all: the caller's IP and the queried address must
+never leave our infrastructure together.
 
 Local preview:
 

@@ -352,5 +352,21 @@ function runDemo(){
     '<details class="raw"><summary>Raw JSON response</summary><pre>'+esc(JSON.stringify(data,null,2))+'</pre></details></div>';
 }
 </script>
+<!--
+  Analytics — Cloudflare Web Analytics (Fase 6).
+
+  Por que NAO Google Analytics: este site anuncia "stateless · nothing
+  persisted" e o produto vende privacidade. GA grava cookie de first-party e
+  envia o IP do visitante ao Google — incoerente com a promessa e exigiria
+  banner de consentimento na UE. O CF Web Analytics nao usa cookie, nao faz
+  fingerprinting e nao rastreia o visitante entre sites.
+  Ver docs/DECISOES.md #8.
+
+  SETUP: Cloudflare Dashboard > Web Analytics > Add a site (wallettriage.com)
+  e copiar o token gerado para o lugar do placeholder abaixo. O token e
+  PUBLICO por design (fica no HTML) — nao e segredo.
+-->
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js"
+        data-cf-beacon='{"token": "b836d364eda0424ab51b87faf540583a"}'></script>
 </body>
 </html>
