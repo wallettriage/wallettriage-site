@@ -174,7 +174,9 @@
 
     <div id="verdict" class="verdict"></div>
     <p class="note">Demo responses are pre-recorded. WalletTriage is probabilistic and never
-    says "safe" — the minimum level is <code>low</code>, always with a summary of what was checked.</p>
+    says "safe" — the minimum level is <code>low</code>, always with a summary of what was checked.
+    Want to hit a real endpoint instead? The free
+    <a href="#integrate">sandbox</a> returns the same schema, no payment and no wallet needed.</p>
   </div>
 </section>
 
@@ -232,6 +234,31 @@
     intercepts TLS. Add <code>"NODE_OPTIONS": "--use-system-ca"</code> to the
     <code>env</code> block so Node trusts your system's certificate store —
     never disable TLS verification.</p>
+
+    <h3 style="margin:26px 0 6px">Sandbox (free, no payment)</h3>
+    <p style="color:var(--muted);font-size:14px">Build and test your parser before you sign a
+    single payment. <code>GET /sandbox/scan</code> is free, needs no wallet and no key, and returns
+    the <em>exact same schema</em> as the paid endpoint — it runs the same risk engine. It only
+    answers for four synthetic fixture addresses, one per risk level, so it can never hand out a
+    free verdict about a real wallet.</p>
+<pre># free — no X-PAYMENT header, no wallet
+curl "https://api.wallettriage.com/sandbox/scan?address=0x0000000000000000000000000000000000000001"
+
+# fixture addresses (…0001 → …0004)
+0x…0001  critical — exposure to a contract flagged by the threat feed
+0x…0002  high     — unlimited allowance to an unknown spender
+0x…0003  medium   — bounded allowance to an unknown spender
+0x…0004  low      — reputable spenders only, spam token suppressed
+
+# response: same fields as /scan, plus
+{ "sandbox": true, "data_source": "fixture", "caveats": [ "SANDBOX RESPONSE — …" ] }</pre>
+    <p style="color:var(--muted);font-size:14px;margin-top:10px">
+    Pass any other address and you get a <code>400</code> listing the fixtures — pointed, not cryptic.
+    From MCP, call <code>check_address_risk</code> with <code>sandbox: true</code>: same tool, same
+    arguments, no payment, no wallet required.
+    <br><strong>What the sandbox does not cover:</strong> the x402 payment handshake itself. The
+    fixture data is synthetic and the responses are deterministic — never use one to make a security
+    decision about a real wallet.</p>
 
     <h3 style="margin:26px 0 6px">REST (for everything else)</h3>
 <pre># 1) discover the price (free)

@@ -147,6 +147,102 @@ paths:
                 error: threat_feed_unavailable
                 detail: 'The live exploit threat feed is temporarily unavailable, so a reliable risk assessment cannot be produced right now. No payment was taken. Retry shortly.'
 
+  /sandbox/scan:
+    get:
+      tags: [meta]
+      operationId: sandboxScan
+      summary: Free sandbox scan — same schema, synthetic data (no payment)
+      description: |
+        Try the response format before integrating. This endpoint is **free**:
+        no payment, no wallet, no API key. It runs the same risk engine as
+        `/scan` and returns the same schema, so a parser written against the
+        sandbox works unchanged against the paid endpoint.
+
+        It only answers for four synthetic **fixture addresses**, one per risk
+        level — it never returns a free verdict about a real wallet. Any other
+        address returns `400` with the list of accepted fixtures.
+
+        | Fixture address | Demonstrates |
+        | --- | --- |
+        | `0x0000000000000000000000000000000000000001` | `critical` — exposure to a contract flagged by the threat feed |
+        | `0x0000000000000000000000000000000000000002` | `high` — unlimited allowance to an unknown spender |
+        | `0x0000000000000000000000000000000000000003` | `medium` — bounded allowance to an unknown spender |
+        | `0x0000000000000000000000000000000000000004` | `low` — reputable spenders only, spam token suppressed |
+
+        Responses add `sandbox: true`, `data_source: "fixture"` and a leading
+        entry in `caveats`. **The data is synthetic**: never use a sandbox
+        response to make a security decision about a real wallet.
+
+        The sandbox exercises the response schema, not the x402 payment
+        handshake. To test the payment flow itself, point your client at a
+        testnet deployment (Base Sepolia).
+      parameters:
+        - name: address
+          in: query
+          required: true
+          description: One of the four synthetic fixture addresses.
+          schema:
+            type: string
+            enum:
+              - '0x0000000000000000000000000000000000000001'
+              - '0x0000000000000000000000000000000000000002'
+              - '0x0000000000000000000000000000000000000003'
+              - '0x0000000000000000000000000000000000000004'
+        - name: chain
+          in: query
+          required: false
+          description: >-
+            Chain to echo in the response. Any supported chain works — the
+            fixture data is chain-agnostic, so your `chain` handling can be
+            exercised too. Defaults to `eth`.
+          schema:
+            type: string
+            enum: [eth, base, polygon, arbitrum, optimism, bsc]
+            default: eth
+      responses:
+        '200':
+          description: >-
+            Risk assessment built from synthetic fixture data. Same schema as
+            `/scan`, plus `sandbox` and `data_source`.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/RiskResponse'
+                  - type: object
+                    required: [sandbox, data_source]
+                    properties:
+                      sandbox:
+                        type: boolean
+                        const: true
+                        description: Always true. This verdict is NOT based on on-chain state.
+                      data_source:
+                        type: string
+                        const: fixture
+                        description: Always "fixture". Provenance of the underlying data.
+        '400':
+          description: >-
+            Address is not a sandbox fixture, or chain is unsupported. The body
+            lists the accepted fixture addresses.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: not_a_sandbox_address
+                detail: 'The sandbox only accepts synthetic fixture addresses, so that it never returns a free verdict about a real wallet. Pick one of the addresses below, or call the paid GET /scan endpoint for a real address.'
+        '429':
+          description: Rate limit exceeded (per-IP). Slow down and retry after the window.
+          headers:
+            Retry-After:
+              description: Seconds until the limit resets.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /health:
     get:
       tags: [meta]
